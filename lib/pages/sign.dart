@@ -1,8 +1,7 @@
 
 
 import 'package:flutter/material.dart';
-import 'package:whats_clone/controller/UserController.dart';
-import 'package:whats_clone/model/message.dart';
+import 'package:whats_clone/controller/auth_controller.dart';
 
 
 class SignPage extends StatefulWidget {
@@ -22,7 +21,6 @@ class _SignPageState extends State<SignPage> {
   final FocusNode _passwordFocus = FocusNode();
 
   bool _obscurePassword = true;
-  bool _loginFail = false;
   bool _isLoading = false;
 
   @override
@@ -80,7 +78,7 @@ class _SignPageState extends State<SignPage> {
             },
             validator: (text){
               RegExp emailExp = RegExp(r'^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$');
-              if(!emailExp.hasMatch(text)) return 'Email must be valid';
+              if(!emailExp.hasMatch(text)) return 'Email inválido.';
               return null;
             },
           ),
@@ -104,6 +102,11 @@ class _SignPageState extends State<SignPage> {
             textInputAction: TextInputAction.done,
             onFieldSubmitted: (text){
               _submit();
+            },
+
+            validator: (text){
+              if(text.length < 6) return 'A senha deve conter no mínimo 6 caracteres.';
+              return null;
             },
           ),
 
@@ -135,19 +138,35 @@ class _SignPageState extends State<SignPage> {
 
 
   _submit() async {
+
     setState(() {
-      _loginFail = false;
       _isLoading = true;
     });
+
     if(_key.currentState.validate()){
-      User user = User(null, _nameField.text, _emailField.text);
-      if(await UserController.getInstance().sign(user, _passwordField.text)){
+      final userData = <String, dynamic>{
+        'email': _emailField.text,
+        'password': _passwordField.text,
+        'name': _nameField.text
+      };
+
+      try{
+        await Auth.getInstance().sign(userData);
 
         Navigator.of(context).pushNamedAndRemoveUntil('home', (route) => false);
+      }catch(e){
+        print(e);
+        setState(() {
+          //todo add info about the error if any
+          _isLoading = false;
+          _key.currentState.validate();
+        });
       }
+
+
     }else {
       setState(() {
-        _loginFail = true;
+        //todo add info about the error if any
         _isLoading = false;
         _key.currentState.validate();
       });

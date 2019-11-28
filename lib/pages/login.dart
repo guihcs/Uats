@@ -1,9 +1,8 @@
 
 
-import 'package:bloc_pattern/bloc_pattern.dart';
+
 import 'package:flutter/material.dart';
-import 'package:whats_clone/bloc/chats_bloc.dart';
-import 'package:whats_clone/controller/UserController.dart';
+import 'package:whats_clone/controller/auth_controller.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -139,21 +138,20 @@ class _LoginPageState extends State<LoginPage> {
   );
 
   _login() async {
+
     setState(() {
       _loginFail = false;
       _isLoading = true;
     });
 
-    if(await (await UserController.getInstance()).login(_emailField.text, _passwordField.text)){
-
-      await UserController.getInstance();
+    if(await Auth.getInstance().login(email: _emailField.text, password: _passwordField.text)){
       Navigator.of(context).pushNamedAndRemoveUntil('home', (route) => false);
     }else {
-      setState(() {
-        _loginFail = true;
-        _isLoading = false;
-        _key.currentState.validate();
-      });
+        setState(() {
+          _loginFail = true;
+          _isLoading = false;
+          _key.currentState.validate();
+        });
+      }
     }
-  }
 }

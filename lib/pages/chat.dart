@@ -5,8 +5,8 @@ import 'package:bubble/bubble.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:whats_clone/bloc/chats_bloc.dart';
+import 'package:whats_clone/model/chat.dart';
 import 'package:whats_clone/model/message.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChatPage extends StatefulWidget {
   @override
@@ -23,7 +23,7 @@ class _ChatPageState extends State<ChatPage> {
 
     _args = ModalRoute.of(context).settings.arguments;
 
-
+    Chat chat = _args['chat'];
     return Container(
       decoration: BoxDecoration(
         image: DecorationImage(
@@ -31,24 +31,12 @@ class _ChatPageState extends State<ChatPage> {
           fit: BoxFit.cover
         )
       ),
-      child: FutureBuilder(
-        future: BlocProvider.getBloc<ChatBloc>().getChat(_args['user'].id),
-        builder: (context, snap){
-          if(snap.hasData) {
-            return Scaffold(
-              appBar: AppBar(
-                title: Text(snap.data.user.name),
-              ),
-              body: _body(context, snap.data),
-              backgroundColor: Colors.transparent,
-            );
-          }
-          return Center(
-            child: CircularProgressIndicator(
-              value: null,
-            ),
-          );
-        },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(chat.contact.name),
+        ),
+        body: _body(context, chat),
+        backgroundColor: Colors.transparent,
       )
     );
   }
@@ -75,7 +63,7 @@ class _ChatPageState extends State<ChatPage> {
       Container(
         alignment: Alignment.bottomCenter,
         child: Padding(
-          padding: EdgeInsets.only(top: 8.0),
+          padding: EdgeInsets.only(top: 0.0),
           child: _input(chat),
         ),
       )
@@ -84,7 +72,7 @@ class _ChatPageState extends State<ChatPage> {
 
   _list(List<Message> messageList){
     return Padding(
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: ListView.builder(
         reverse: true,
         itemCount: messageList.length,
@@ -104,10 +92,13 @@ class _ChatPageState extends State<ChatPage> {
         onPressed: () {
           RegExp regex = RegExp(r'^\s*$');
           if(regex.hasMatch(_inputController.text)) return;
+
+          BlocProvider.getBloc<ChatBloc>().sendMessage(_args['chat'].contact.id, {
+            'data': _inputController.text
+          });
+
+
           setState(() {
-            ChatBloc chatBloc = BlocProvider.getBloc<ChatBloc>();
-            chatBloc.sendMessage(chat.user.id, _inputController.text);
-            chat = BlocProvider.getBloc<ChatBloc>().getChat(chat.user.id);
             _inputController.clear();
           });
         }
@@ -177,7 +168,7 @@ class _ChatPageState extends State<ChatPage> {
     return Container(
       //alignment: Alignment.centerLeft,
       child: Text(
-        message.text,
+        message.data,
         style: TextStyle(
 
           fontSize: 16

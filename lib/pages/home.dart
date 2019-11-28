@@ -4,13 +4,15 @@ import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:whats_clone/bloc/chats_bloc.dart';
-import 'package:whats_clone/controller/UserController.dart';
-import 'package:whats_clone/model/message.dart';
+import 'package:whats_clone/controller/auth_controller.dart';
+import 'package:whats_clone/model/chat.dart';
+import 'package:whats_clone/provider/contacts_provider.dart';
+import 'package:whats_clone/provider/message_provider.dart';
 
 class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-
+    BlocProvider.getBloc<ChatBloc>().initialize();
     return Scaffold(
       appBar: AppBar(
         title: Text('Uats'),
@@ -22,17 +24,27 @@ class HomePage extends StatelessWidget {
         backgroundColor: Colors.lightBlue[800],
         foregroundColor: Colors.white,
         child: Icon(Icons.message),
-        onPressed: (){
+        onPressed: () async {
+          final contact = await Navigator.of(context).pushNamed('contact');
 
-          Navigator.of(context).pushNamed('contact');
+          if(contact == null) return;
+
+          final chat = BlocProvider.getBloc<ChatBloc>().startChat(contact);
+          Navigator.of(context).pushNamed('chat', arguments: {
+            'chat': chat
+          });
         },
       ),
     );
   }
 
   _logout(context) async {
-    BlocProvider.getBloc<ChatBloc>().clearListeners();
-    await UserController.getInstance().logout();
+
+    BlocProvider.getBloc<ChatBloc>().close();
+    MessageProvider.getInstance().close();
+    ContactProvider.getInstance().close();
+
+    await Auth.getInstance().logout();
     Navigator.of(context).pushReplacementNamed('login');
   }
 
@@ -55,17 +67,22 @@ class HomePage extends StatelessWidget {
 
   _body(context){
 
-    final chatBloc = BlocProvider.getBloc<ChatBloc>();
     return StreamBuilder(
-      initialData: chatBloc.initialData(),
-      stream: chatBloc.stream,
+      initialData: BlocProvider.getBloc<ChatBloc>().initialData(),
+      stream: BlocProvider.getBloc<ChatBloc>().stream,
       builder: (context, snap){
 
         if(snap.hasData) {
-          return _buildList(snap.data);
+          if(snap.data.length > 0) return _buildList(snap.data);
+          else return _emptyChat();
         }
 
-        return Container();
+
+        return Center(
+          child: CircularProgressIndicator(
+            value: null,
+          ),
+        );
       },
     );
   }
@@ -122,15 +139,15 @@ class HomePage extends StatelessWidget {
     return InkWell(
       onTap: (){
         Navigator.of(context).pushNamed('chat', arguments: {
-          'user': chat.user
+          'chat': chat
         });
       },
       child: ListTile(
         leading: CircleAvatar(
-          child: Text(chat.user.name[0]),
+          child: Text(chat.contact.name[0]),
         ),
-        title: Text(chat.user.name),
-        subtitle: Text(chat.lastMessage.text ?? '', overflow: TextOverflow.ellipsis
+        title: Text(chat.contact.name),
+        subtitle: Text(chat.lastMessage.data ?? '', overflow: TextOverflow.ellipsis
           ,),
         trailing: Text(DateFormat('hh:mm a').format(chat.lastMessage.time), style: TextStyle(
           fontSize: 12

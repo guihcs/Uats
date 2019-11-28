@@ -1,15 +1,14 @@
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:flutter/material.dart';
-import 'package:whats_clone/bloc/chats_bloc.dart';
 import 'package:whats_clone/bloc/contacts_bloc.dart';
-import 'package:whats_clone/model/message.dart';
+import 'package:whats_clone/model/contact.dart';
 
 class ContactsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Contacts'),
+          title: Text('Contatos'),
           actions: _actions()
         ),
         body: _body(context)
@@ -23,7 +22,7 @@ class ContactsPage extends StatelessWidget {
   }
 
   _userNotFoundAlert(context) => AlertDialog(
-    title: Text('User not found'),
+    title: Text('Usuário não encontrado.'),
     actions: <Widget>[
       FlatButton(
         onPressed: (){
@@ -48,9 +47,7 @@ class ContactsPage extends StatelessWidget {
         final user = await BlocProvider.getBloc<ContactsBloc>().findUser(email);
 
         if(user != null) {
-          Navigator.of(context).pushReplacementNamed('chat', arguments: {
-            'user': user
-          });
+          Navigator.of(context).pop(user);
         }else{
           showDialog(
               context: context,
@@ -66,7 +63,7 @@ class ContactsPage extends StatelessWidget {
           child: Icon(Icons.person_add),
         ),
       ),
-      title: Text('Add contact'),
+      title: Text('Adicionar Contato'),
     ),
   );
 
@@ -82,26 +79,32 @@ class ContactsPage extends StatelessWidget {
         initialData: contactBloc.initialData(),
         stream: contactBloc.stream,
         builder: (context, snap) {
-          final tiles = _functionsTiles(context);
-          return ListView.builder(
-            itemCount: snap.data.length + tiles.length,
-            itemBuilder: (context, index) {
-              if(index < tiles.length) return tiles[index];
-              return _contactTile(context, snap.data[index - tiles.length]);
-            },
-          );
+          if(snap.hasData) {
+            final tiles = _functionsTiles(context);
+            return ListView.builder(
+              itemCount: snap.data.length + tiles.length,
+              itemBuilder: (context, index) {
+                if (index < tiles.length) return tiles[index];
+                return _contactTile(context, snap.data[index - tiles.length]);
+              },
+            );
+          }else {
+            return Center(
+              child: CircularProgressIndicator(
+                value: null,
+              ),
+            );
+          }
         },
       ),
     );
   }
 
 
-  _contactTile(context, User contact) {
+  _contactTile(context, Contact contact) {
     return InkWell(
       onTap: () {
-        Navigator.of(context).pushReplacementNamed('chat', arguments: {
-          'user': contact
-        });
+        Navigator.of(context).pop(contact);
       },
       child: ListTile(
         leading: CircleAvatar(
@@ -139,7 +142,7 @@ class StartChatDialog extends StatelessWidget {
             Container(
               padding: EdgeInsets.symmetric(horizontal: 8.0),
               alignment: Alignment.centerLeft,
-              child: Text('Add Contact', style: TextStyle(
+              child: Text('Adicionar Contato', style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18
               ),)
@@ -161,13 +164,13 @@ class StartChatDialog extends StatelessWidget {
                   onPressed: (){
                     Navigator.of(context).pop(null);
                   },
-                  child: Text('CANCEL'),
+                  child: Text('CANCELAR'),
                 ),
                 FlatButton(
                   onPressed: (){
                     Navigator.of(context).pop(_controller.text);
                   },
-                  child: Text('START', style: TextStyle(
+                  child: Text('INICIAR', style: TextStyle(
                     color: Colors.blue
                   ),),
                 ),

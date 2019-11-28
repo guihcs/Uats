@@ -1,7 +1,6 @@
 
 
 import 'dart:async';
-import 'dart:math';
 
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:whats_clone/model/message.dart';
@@ -9,37 +8,32 @@ import 'package:whats_clone/model/message.dart';
 class MessageBloc extends BlocBase {
 
   StreamController _controller = StreamController<List<Message>>.broadcast();
-  List<Message> _messageList = [];
+  Map<String, Message> _messageMap = {};
+  Message _lastMessage;
 
-  MessageBloc();
-
-  MessageBloc.random(){
-    _messageList = List.generate(Random().nextInt(15), (i) => Message.random());
-    _controller.add(_messageList);
-  }
 
   initialData() => _getList();
 
   get stream => _controller.stream;
 
   get lastMessage {
-    if(_messageList.length > 0) return _messageList.last;
-    return null;
+    return _lastMessage;
   }
 
   addMessage(Message message){
-    _messageList.add(message);
-    _controller.add(_getList());
-  }
+    if(lastMessage == null || lastMessage.time.compareTo(message.time) < 0) _lastMessage = message;
 
-  void refresh(){
+    if(_messageMap.containsKey(message.id)) return;
+
+    _messageMap[message.id] = message;
     _controller.add(_getList());
   }
 
 
   _getList(){
-    _messageList.sort((m1, m2) => m1.time.compareTo(m2.time));
-    return _messageList.reversed.toList();
+    final messageList = _messageMap.values.toList();
+    messageList.sort((m1, m2) => -m1.time.compareTo(m2.time));
+    return messageList;
   }
 
   @override

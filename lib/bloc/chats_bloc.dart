@@ -1,163 +1,108 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:whats_clone/controller/UserController.dart';
-import 'package:whats_clone/model/message.dart';
+import 'package:whats_clone/model/chat.dart';
 import 'package:bloc_pattern/bloc_pattern.dart';
+import 'package:whats_clone/model/contact.dart';
+import 'package:whats_clone/model/message.dart';
+import 'package:whats_clone/provider/contacts_provider.dart';
+import 'package:whats_clone/provider/message_provider.dart';
 
 
 class ChatBloc extends BlocBase{
 
-  UserController _userController;
-  StreamController _controller;
-  Map<String, Chat> _chatMap = {};
-  Firestore _firestore = Firestore.instance;
+  StreamController _controller = StreamController.broadcast();
 
-  StreamSubscription _inSubscription, _outSubscription;
-  bool _loaded = false;
+  ContactProvider _contactProvider;
+  MessageProvider _messageProvider;
 
-  ChatBloc(){
-    _userController = UserController.getInstance();
-    _controller = StreamController<List<Chat>>.broadcast();
-    _chatMap = {};
+  Map<String, Chat> _chatMap;
+  bool _isLoading = false;
+  bool _initialized = false;
+
+  initialize(){
+    if(!_initialized) {
+      _contactProvider = ContactProvider.getInstance();
+      _messageProvider = MessageProvider.getInstance();
+      _initialized = true;
+      _messageProvider.onData((List<Message> messages) async {
+        if(_chatMap == null) _chatMap = {};
+        for (var message in messages) {
+          final contact = await _contactProvider.getContact(message.partnerID);
+          Chat chat = startChat(contact);
+          chat.addMessage(message);
+        }
+
+        refresh();
+      });
+    }
   }
 
-  startupLoad() async {
+  initialData() {
+    if(_chatMap == null){
+      if(!_isLoading){
+        _isLoading = true;
+        Future.microtask(() async {
+          final messages = await _messageProvider.loadAll();
+          if(_chatMap == null) _chatMap = {};
+          for (Message message in messages) {
+            final contact = await _contactProvider.getContact(message.partnerID);
+            Chat chat = startChat(contact);
+            chat.addMessage(message);
+          }
 
-    _userController = UserController.getInstance();
-    _controller = StreamController<List<Chat>>.broadcast();
-    _chatMap = {};
-
-    if(!_loaded) {
-      final inDocs = (await Firestore.instance.collection('messages')
-          .where('to', isEqualTo: _userController.userID).getDocuments())
-          .documents;
-
-      final outDocs = (await Firestore.instance.collection('messages')
-          .where('from', isEqualTo: _userController.userID).getDocuments())
-          .documents;
-
-      for (var doc in inDocs) {
-        await _addStartupMessage(doc.data);
+          refresh();
+          _isLoading = false;
+        });
       }
 
-      for (var doc in outDocs) {
-        await _addStartupMessage(doc.data);
-      }
 
-      _loaded = true;
-
-      _setupListeners();
-    }
-  }
-
-
-  _addStartupMessage(Map data) async {
-
-    final date = DateTime.parse(data['time']);
-
-    bool isFromMe = data['from'] == _userController.userID;
-    String userID = isFromMe ? data['to'] : data['from'];
-
-    Message message = Message(data['text'], isFromMe, date);
-    await addMessage(userID, message);
-  }
-  
-  _setupListeners() async {
-    try{
-      _inSubscription = Firestore.instance.collection('messages')
-      .where('to', isEqualTo: _userController.userID).
-      snapshots().listen(_onData);
-
-      _outSubscription = Firestore.instance.collection('messages')
-      .where('from', isEqualTo: _userController.userID).
-      snapshots().listen(_onData);
-
-    }catch(e){
-      print(e);
-    }
-  }
-
-  clearListeners() {
-    _inSubscription?.cancel();
-    _outSubscription?.cancel();
-    _loaded = false;
-  }
-
-  _onData(QuerySnapshot snap){
-    for (var doc in snap.documents) {
-
-      final data = doc.data;
-
-      final date = DateTime.parse(data['time']);
-
-      bool isFromMe = data['from'] == _userController.userID;
-      String userID = isFromMe ? data['to'] : data['from'];
-
-
-
-      if(_chatMap[userID] != null &&
-          _chatMap[userID].lastMessage != null &&
-          _chatMap[userID].lastMessage.time.compareTo(date) >= 0) continue;
-
-      Message message = Message(data['text'], isFromMe, date);
-      addMessage(userID, message);
+      return null;
     }
 
-    _controller.add(_getList());
+    return _getList();
   }
 
-  _getList(){
-    final chatList = _chatMap.values.toList();
-    chatList.sort((c1, c2) => -1 * c1.lastMessage.time.compareTo(c2.lastMessage.time));
-    return chatList;
+
+  sendMessage(contactID, messageData){
+
+    Message message = Message(
+      date: DateTime.now(),
+      data: messageData['data'],
+      isFromMe: true,
+      partnerID: contactID
+    );
+
+    _messageProvider.send(contactID, message);
   }
 
-  initialData() => _getList();
+  startChat(Contact contact){
+    if(_chatMap == null) initialData();
+    if(!_chatMap.containsKey(contact.id)) _chatMap[contact.id] = Chat(contact);
+    return _chatMap[contact.id];
+  }
 
   get stream => _controller.stream;
 
-  addMessage(String userID, Message message) async {
+  refresh() => _controller.add(_getList());
 
-    if(_chatMap.containsKey(userID)){
-      _chatMap[userID].addMessage(message);
-    }else {
-      User user = await _userController.getContact(userID);
-      _chatMap[userID] = Chat(user);
-      _chatMap[userID].addMessage(message);
-      _controller.add(_getList());
-    }
-  }
+  _getList(){
+    if(_chatMap == null) return null;
+    final list = <Chat>[];
+    list.addAll(_chatMap.values.toList());
 
-  sendMessage(String userID, String text){
+    if(list.length > 0) list.sort((c1, c2){
+      if(c1.lastMessage == null && c2.lastMessage != null) return -1;
+      else if(c2.lastMessage == null && c1.lastMessage != null) return 1;
+      else if(c1.lastMessage == null && c2.lastMessage == null) return 0;
 
-
-    _firestore.collection('messages').document().setData({
-      'to': userID,
-      'from': _userController.userID,
-      'text': text,
-      'time': DateTime.now().toIso8601String()
+      return -c1.lastMessage.time.compareTo(c2.lastMessage.time);
     });
-//    addMessage(userID, message);
+    return list;
   }
 
-  refresh(user) async {
-    _controller.add(_getList());
-    _chatMap[user].refresh();
-
-  }
-  
-  getChat(user) async {
-    if(_chatMap.containsKey(user)){
-      
-      Future.delayed(Duration(milliseconds: 200), (){
-        refresh(user);
-      });
-      
-      return _chatMap[user];
-    }else {
-      return Chat(await _userController.getContact(user));
-    }
+  close(){
+    _chatMap = null;
+    _initialized = false;
   }
 
   @override
