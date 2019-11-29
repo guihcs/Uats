@@ -1,6 +1,7 @@
 import 'package:bloc_pattern/bloc_pattern.dart';
 import 'package:flutter/material.dart';
 import 'package:whats_clone/bloc/contacts_bloc.dart';
+import 'package:whats_clone/controller/auth_controller.dart';
 import 'package:whats_clone/model/contact.dart';
 
 class ContactsPage extends StatelessWidget {
@@ -43,7 +44,7 @@ class ContactsPage extends StatelessWidget {
         }
       );
 
-      if(email != null && email.isNotEmpty){
+      if(email != null && email.isNotEmpty && (await Auth.getInstance().getCurrentUser()).email != email){
         final user = await BlocProvider.getBloc<ContactsBloc>().findUser(email);
 
         if(user != null) {

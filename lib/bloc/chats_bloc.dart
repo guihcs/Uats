@@ -27,6 +27,7 @@ class ChatBloc extends BlocBase{
       _messageProvider.onData((List<Message> messages) async {
         if(_chatMap == null) _chatMap = {};
         for (var message in messages) {
+          if(_chatMap == null) return;
           final contact = await _contactProvider.getContact(message.partnerID);
           Chat chat = startChat(contact);
           chat.addMessage(message);

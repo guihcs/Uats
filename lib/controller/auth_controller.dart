@@ -21,9 +21,14 @@ class Auth {
 
 
   login({email, password}) async {
-    final result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+    try {
+      final result = await _auth.signInWithEmailAndPassword(
+          email: email, password: password);
 
-    return result.user != null;
+      return result.user != null;
+    }catch(e){
+      return false;
+    }
   }
 
   logout() async {

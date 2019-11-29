@@ -31,6 +31,7 @@ class ContactProvider {
     }
 
     final contact = await _loadContact('email', email);
+    if(contact == null) return null;
     _contactMap[contact.id] = contact;
     return contact;
   }

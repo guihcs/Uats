@@ -22,6 +22,7 @@ class _SignPageState extends State<SignPage> {
 
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _signError = false;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +80,7 @@ class _SignPageState extends State<SignPage> {
             validator: (text){
               RegExp emailExp = RegExp(r'^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$');
               if(!emailExp.hasMatch(text)) return 'Email inválido.';
+              else if(_signError) return 'Este email já está sendo usado.';
               return null;
             },
           ),
@@ -157,18 +159,20 @@ class _SignPageState extends State<SignPage> {
       }catch(e){
         print(e);
         setState(() {
-          //todo add info about the error if any
+          _signError = true;
           _isLoading = false;
           _key.currentState.validate();
+          _signError = false;
         });
       }
 
 
     }else {
       setState(() {
-        //todo add info about the error if any
+        _signError = true;
         _isLoading = false;
         _key.currentState.validate();
+        _signError = false;
       });
     }
   }
